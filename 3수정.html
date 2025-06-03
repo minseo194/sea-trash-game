@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>토토의 바다 청소 대작전</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: url('underwater.jpg') no-repeat center center fixed;
+      background-size: cover;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      color: white;
+      overflow: hidden;
+    }
+    #wave {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('wave.png') repeat-x;
+      animation: wave 10s linear infinite;
+      opacity: 0.2;
+      z-index: -1;
+    }
+    @keyframes wave {
+      0% { background-position-x: 0; }
+      100% { background-position-x: 1000px; }
+    }
+    #start-screen, #game-screen, #end-screen {
+      display: none;
+      padding: 20px;
+    }
+    #start-screen.active, #game-screen.active, #end-screen.active {
+      display: block;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .item {
+      width: 100px;
+      height: 100px;
+      margin: 10px;
+      cursor: grab;
+      animation: float 3s ease-in-out infinite;
+    }
+    .item img {
+      width: 100%;
+      height: auto;
+    }
+    #bin {
+      width: 160px;
+      height: 160px;
+      margin: 40px auto;
+    }
+    #bin img {
+      width: 100%;
+      height: auto;
+    }
+    #message {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffeb3b;
+      margin-top: 10px;
+    }
+    #score, #timer {
+      font-size: 24px;
+      margin: 10px;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px 20px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      background: #00796b;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #004d40;
+    }
+
+    /* 애니메이션 효과 */
+    @keyframes float {
+      0%   { transform: translateY(0px); }
+      50%  { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="wave"></div>
+
+<div id="start-screen" class="active">
+  <h1>🐠 토토의 바다 청소 대작전 🧼</h1>
+  <p>시작 버튼을 누르면 30초 동안 쓰레기를 분리해요!</p>
+  <button onclick="startGame()">게임 시작</button>
+</div>
+
+<div id="game-screen">
+  <div id="score">점수: 0</div>
+  <div id="timer">남은 시간: 30초</div>
+  <div class="container" id="items">
+    <div class="item" draggable="true" data-type="trash" data-label="플라스틱병"><img src="plastic-bottle.png" alt="플라스틱병"></div>
+    <div class="item" draggable="true" data-type="trash" data-label="비닐봉지"><img src="plastic-bag.png" alt="비닐봉지"></div>
+    <div class="item" draggable="true" data-type="trash" data-label="캔"><img src="can.png" alt="캔"></div>
+    <div class="item" draggable="true" data-type="animal" data-label="물고기"><img src="fish.png" alt="물고기"></div>
+    <div class="item" draggable="true" data-type="animal" data-label="산호"><img src="coral.png" alt="산호"></div>
+  </div>
+  <div id="bin"><img src="trash-bin.png" alt="쓰레기통"></div>
+  <div id="message"></div>
+</div>
+
+<div id="end-screen">
+  <h2>🎉 게임 종료!</h2>
+  <p id="final-score"></p>
+  <p>🌊 바다를 깨끗하게 지켜줬어요! 고마워요~ 🐬</p>
+  <button onclick="restartGame()">다시 시작</button>
+</div>
+
+<audio id="bgm" src="ocean-music.mp3" loop></audio>
+<audio id="correct-sound" src="correct.mp3"></audio>
+<audio id="wrong-sound" src="wrong.mp3"></audio>
+
+<script>
+  const items = document.querySelectorAll('.item');
+  const bin = document.getElementById('bin');
+  const scoreDisplay = document.getElementById('score');
+  const timerDisplay = document.getElementById('timer');
+  const message = document.getElementById('message');
+  const finalScore = document.getElementById('final-score');
+  const bgm = document.getElementById('bgm');
+  const correctSound = document.getElementById('correct-sound');
+  const wrongSound = document.getElementById('wrong-sound');
+
+  let score = 0;
+  let timeLeft = 30;
+  let timerInterval;
+  let collectedTrash = new Set();
+
+  items.forEach(item => {
+    item.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('type', item.dataset.type);
+      e.dataTransfer.setData('label', item.dataset.label);
+    });
+  });
+
+  bin.addEventListener('dragover', e => e.preventDefault());
+
+  bin.addEventListener('drop', e => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData('type');
+    const label = e.dataTransfer.getData('label');
+
+    if (type === 'trash') {
+      score += 1;
+      collectedTrash.add(label);
+      message.textContent = `${label}: 잘했어요!`;
+      message.style.color = '#ffeb3b';
+      correctSound.currentTime = 0;
+      correctSound.play();
+
+      if (collectedTrash.size === 3) {
+        shuffleItems();
+        collectedTrash.clear();
+      }
+    } else {
+      message.textContent = `${label}는 쓰레기가 아니에요!`;
+      message.style.color = '#f44336';
+      wrongSound.currentTime = 0;
+      wrongSound.play();
+    }
+
+    scoreDisplay.textContent = `점수: ${score}`;
+  });
+
+  function shuffleItems() {
+    const container = document.getElementById('items');
+    const children = Array.from(container.children);
+    const shuffled = children.sort(() => Math.random() - 0.5);
+    shuffled.forEach(child => container.appendChild(child));
+  }
+
+  function startGame() {
+    score = 0;
+    timeLeft = 30;
+    collectedTrash.clear();
+    document.getElementById('start-screen').classList.remove('active');
+    document.getElementById('game-screen').classList.add('active');
+    scoreDisplay.textContent = `점수: ${score}`;
+    timerDisplay.textContent = `남은 시간: ${timeLeft}초`;
+    bgm.play();
+
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timerDisplay.textContent = `남은 시간: ${timeLeft}초`;
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function endGame() {
+    clearInterval(timerInterval);
+    document.getElementById('game-screen').classList.remove('active');
+    document.getElementById('end-screen').classList.add('active');
+    finalScore.textContent = `당신의 점수는 ${score}점입니다!`;
+    bgm.pause();
+    bgm.currentTime = 0;
+  }
+
+  function restartGame() {
+    document.getElementById('end-screen').classList.remove('active');
+    document.getElementById('start-screen').classList.add('active');
+    message.textContent = '';
+  }
+</script>
+
+</body>
+</html>
